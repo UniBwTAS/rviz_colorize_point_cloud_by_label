@@ -1,0 +1,7 @@
+<library path="lib/libvis_point_cloud_transformers">
+    <class name="rviz/Label" type="rviz::LabelPCTransformer" base_class_type="rviz::PointCloudTransformer">
+        <description>
+            Sets the color of each point based on a label.
+        </description>
+    </class>
+</library>
