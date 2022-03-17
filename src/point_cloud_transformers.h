@@ -6,6 +6,8 @@ namespace rviz
 {
 
 class EditableEnumProperty;
+class IntProperty;
+class BoolProperty;
 
 class LabelPCTransformer : public PointCloudTransformer
 {
@@ -23,5 +25,8 @@ class LabelPCTransformer : public PointCloudTransformer
   private:
     std::vector<std::string> available_channels_;
     EditableEnumProperty* channel_name_property_;
+    BoolProperty* show_only_property_;
+    IntProperty* show_only_value_property_;
+    EditableEnumProperty* show_only_channel_name_property_;
 };
 }; // namespace rviz
