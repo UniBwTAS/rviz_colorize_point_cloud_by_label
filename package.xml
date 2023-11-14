@@ -1,5 +1,5 @@
 <package format="2">
-  <name>vis_point_cloud_transformers</name>
+  <name>rviz_colorize_point_cloud_by_label</name>
   <version>0.1.0</version>
   <description>
     Plugins for the PointCloud Display plugin

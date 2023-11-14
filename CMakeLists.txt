@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 
 set(CMAKE_CXX_STANDARD 11)
 
-project(vis_point_cloud_transformers)
+project(rviz_colorize_point_cloud_by_label)
 
 find_package(catkin REQUIRED COMPONENTS
     rviz
