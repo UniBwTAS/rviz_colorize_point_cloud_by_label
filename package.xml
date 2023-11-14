@@ -5,9 +5,8 @@
     Plugins for the PointCloud Display plugin
   </description>
   <maintainer email="andreas.reich@unibw.de">Andreas Reich</maintainer>
-  <license>TODO</license>
-
-  <author>Andreas Reich</author>
+  <author email="andreas.reich@unibw.de">Andreas Reich</author>
+  <license>BSD</license>
 
   <buildtool_depend>catkin</buildtool_depend>
 
