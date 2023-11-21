@@ -3,7 +3,7 @@
 #include <rviz/properties/editable_enum_property.h>
 #include <rviz/properties/int_property.h>
 
-#include <rviz/ogre_helpers/color_material_helper.h>
+#include <ogre_helpers/color_material_helper.h>
 
 #include "point_cloud_transformers.h"
 
