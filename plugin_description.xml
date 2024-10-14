@@ -4,4 +4,9 @@
             Sets the color of each point based on a label.
         </description>
     </class>
+    <class name="rviz/IntensityLabel" type="rviz::IntensityLabelPCTransformer" base_class_type="rviz::PointCloudTransformer">
+        <description>
+            Sets the color of each point based on the intensity and allows filtering by a different value.
+        </description>
+    </class>
 </library>
