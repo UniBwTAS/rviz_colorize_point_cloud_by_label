@@ -9,4 +9,9 @@
             Sets the color of each point based on the intensity and allows filtering by a different value.
         </description>
     </class>
+    <class name="rviz/Range" type="rviz::RangePCTransformer" base_class_type="rviz::PointCloudTransformer">
+        <description>
+            Sets the color of each point based on the intensity and allows filtering by a given range.
+        </description>
+    </class>
 </library>

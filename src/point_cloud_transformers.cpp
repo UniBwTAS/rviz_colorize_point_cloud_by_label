@@ -160,7 +160,7 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
     }
 }
 
-
+// ----------------------------------------------------------------------------------------------------
 
     uint8_t IntensityLabelPCTransformer::supports(const sensor_msgs::PointCloud2ConstPtr& cloud)
     {
@@ -229,7 +229,7 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
                 {
                     const uint32_t show_only_offset = cloud->fields[show_only_index].offset;
                     const uint8_t show_only_type = cloud->fields[show_only_index].datatype;
-                    auto show_only_val = valueFromCloud<uint16_t>(cloud, show_only_offset, show_only_type, point_step, i);
+                    auto show_only_val = valueFromCloud<float>(cloud, show_only_offset, show_only_type, point_step, i);
                     if(show_only_val == show_only_desired_value)
                     {
                         min_intensity = std::min(val, min_intensity);
@@ -277,7 +277,7 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
                 {
                     const uint32_t show_only_offset = cloud->fields[show_only_index].offset;
                     const uint8_t show_only_type = cloud->fields[show_only_index].datatype;
-                    auto show_only_val = valueFromCloud<uint16_t>(cloud, show_only_offset, show_only_type, point_step, i);
+                    auto show_only_val = valueFromCloud<float>(cloud, show_only_offset, show_only_type, point_step, i);
                     if(show_only_val != show_only_desired_value)
                     {
                         points_out[i].color.a = 0.f;
@@ -307,7 +307,7 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
                 {
                     const uint32_t show_only_offset = cloud->fields[show_only_index].offset;
                     const uint8_t show_only_type = cloud->fields[show_only_index].datatype;
-                    auto show_only_val = valueFromCloud<uint16_t>(cloud, show_only_offset, show_only_type, point_step, i);
+                    auto show_only_val = valueFromCloud<float>(cloud, show_only_offset, show_only_type, point_step, i);
                     if(show_only_val != show_only_desired_value)
                     {
                         points_out[i].color.a = 0.f;
@@ -467,9 +467,320 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
         Q_EMIT needRetransform();
     }
 
+// ----------------------------------------------------------------------------------------------------
+
+    uint8_t RangePCTransformer::supports(const sensor_msgs::PointCloud2ConstPtr& cloud)
+    {
+        updateChannels(cloud);
+        return Support_Color;
+    }
+
+    bool RangePCTransformer::transform(const sensor_msgs::PointCloud2ConstPtr& cloud,
+                                                uint32_t mask,
+                                                const Ogre::Matrix4& transform,
+                                                V_PointCloudPoint& points_out)
+    {
+        if (!(mask & Support_Color))
+        {
+            return false;
+        }
+
+        int32_t index = findChannelIndex(cloud, channel_name_property_->getStdString());
+
+        if (index == -1)
+        {
+            if (channel_name_property_->getStdString() == "intensity")
+            {
+                index = findChannelIndex(cloud, "intensities");
+                if (index == -1)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        bool filter_activated = filter_property_->getBool();
+        bool invert_filter_activated = invert_filter_property_->getBool();
+        float lower_desired_value = filter_lower_value_property_->getFloat();
+        float upper_desired_value = filter_upper_value_property_->getFloat();
+        uint32_t range_filter_index;
+        if (filter_activated)
+        {
+            range_filter_index = findChannelIndex(cloud, filter_channel_name_property_->getStdString());
+
+            if (range_filter_index == -1)
+            {
+                return false;
+            }
+        }
+        const uint32_t offset = cloud->fields[index].offset;
+        const uint8_t type = cloud->fields[index].datatype;
+        const uint32_t point_step = cloud->point_step;
+        const uint32_t num_points = cloud->width * cloud->height;
+
+        float min_intensity = 999999.0f;
+        float max_intensity = -999999.0f;
+        if (auto_compute_intensity_bounds_property_->getBool())
+        {
+            for (uint32_t i = 0; i < num_points; ++i)
+            {
+                float val = valueFromCloud<float>(cloud, offset, type, point_step, i);
+                if (!filter_activated)
+                {
+                    min_intensity = std::min(val, min_intensity);
+                    max_intensity = std::max(val, max_intensity);
+                }
+                else
+                {
+                    const uint32_t filter_offset = cloud->fields[range_filter_index].offset;
+                    const uint8_t filter_type = cloud->fields[range_filter_index].datatype;
+                    auto filter_val = valueFromCloud<float>(cloud, filter_offset, filter_type, point_step, i);
+                    if(test_value(filter_val,lower_desired_value,upper_desired_value,invert_filter_activated))
+                    {
+                        min_intensity = std::min(val, min_intensity);
+                        max_intensity = std::max(val, max_intensity);
+                    }
+                }
+            }
+
+            min_intensity = std::max(-999999.0f, min_intensity);
+            max_intensity = std::min(999999.0f, max_intensity);
+            min_intensity_property_->setFloat(min_intensity);
+            max_intensity_property_->setFloat(max_intensity);
+        }
+        else
+        {
+            min_intensity = min_intensity_property_->getFloat();
+            max_intensity = max_intensity_property_->getFloat();
+        }
+
+        float diff_intensity = max_intensity - min_intensity;
+        if (diff_intensity == 0)
+        {
+            // If min and max are equal, set the diff to something huge so
+            // when we divide by it, we effectively get zero.  That way the
+            // point cloud coloring will be predictably uniform when min and
+            // max are equal.
+            diff_intensity = 1e20;
+        }
+        Ogre::ColourValue max_color = max_color_property_->getOgreColor();
+        Ogre::ColourValue min_color = min_color_property_->getOgreColor();
+
+        if (use_rainbow_property_->getBool())
+        {
+            for (uint32_t i = 0; i < num_points; ++i)
+            {
+                float val = valueFromCloud<float>(cloud, offset, type, point_step, i);
+                float value = 1.0 - (val - min_intensity) / diff_intensity;
+                if (invert_rainbow_property_->getBool())
+                {
+                    value = 1.0 - value;
+                }
+                getRainbowColorLabel(value, points_out[i].color);
+
+                if (filter_activated)
+                {
+                    const uint32_t filter_offset = cloud->fields[range_filter_index].offset;
+                    const uint8_t filter_type = cloud->fields[range_filter_index].datatype;
+                    auto filter_val = valueFromCloud<float>(cloud, filter_offset, filter_type, point_step, i);
+                    if(!test_value(filter_val,lower_desired_value,upper_desired_value,invert_filter_activated))
+                    {
+                        points_out[i].color.a = 0.f;
+                        // put those points to origin in order to not accidentally select them with the selection tool
+                        points_out[i].position.x = 0.f;
+                        points_out[i].position.y = 0.f;
+                        points_out[i].position.z = 0.f;
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (uint32_t i = 0; i < num_points; ++i)
+            {
+                float val = valueFromCloud<float>(cloud, offset, type, point_step, i);
+                float normalized_intensity = (val - min_intensity) / diff_intensity;
+                normalized_intensity = std::min(1.0f, std::max(0.0f, normalized_intensity));
+                points_out[i].color.r =
+                        max_color.r * normalized_intensity + min_color.r * (1.0f - normalized_intensity);
+                points_out[i].color.g =
+                        max_color.g * normalized_intensity + min_color.g * (1.0f - normalized_intensity);
+                points_out[i].color.b =
+                        max_color.b * normalized_intensity + min_color.b * (1.0f - normalized_intensity);
+
+                if (filter_activated)
+                {
+                    const uint32_t filter_offset = cloud->fields[range_filter_index].offset;
+                    const uint8_t filter_type = cloud->fields[range_filter_index].datatype;
+                    auto filter_val = valueFromCloud<float>(cloud, filter_offset, filter_type, point_step, i);
+                    if(!test_value(filter_val,lower_desired_value,upper_desired_value,invert_filter_activated))
+                    {
+                        points_out[i].color.a = 0.f;
+                        // put those points to origin in order to not accidentally select them with the selection tool
+                        points_out[i].position.x = 0.f;
+                        points_out[i].position.y = 0.f;
+                        points_out[i].position.z = 0.f;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    uint8_t RangePCTransformer::score(const sensor_msgs::PointCloud2ConstPtr& cloud)
+    {
+        return 255;
+    }
+
+    void RangePCTransformer::createProperties(Property* parent_property, uint32_t mask, QList<Property*>& out_props)
+    {
+
+        if (mask & Support_Color)
+        {
+
+            channel_name_property_ =
+                    new EditableEnumProperty("Channel Name", "intensity",
+                                             "Select the channel to use to compute the intensity", parent_property,
+                                             SIGNAL(needRetransform()), this);
+
+            use_rainbow_property_ =
+                    new BoolProperty("Use rainbow", true,
+                                     "Whether to use a rainbow of colors or interpolate between two",
+                                     parent_property, &RangePCTransformer::updateUseRainbow, this);
+            invert_rainbow_property_ =
+                    new BoolProperty("Invert Rainbow", false, "Whether to invert rainbow colors", parent_property,
+                                     &RangePCTransformer::updateUseRainbow, this);
+
+            min_color_property_ =
+                    new ColorProperty("Min Color", Qt::black,
+                                      "Color to assign the points with the minimum intensity.  "
+                                      "Actual color is interpolated between this and Max Color.",
+                                      parent_property,
+                                      SIGNAL(needRetransform()), this);
+
+            max_color_property_ =
+                    new ColorProperty("Max Color", Qt::white,
+                                      "Color to assign the points with the maximum intensity.  "
+                                      "Actual color is interpolated between this and Min Color.",
+                                      parent_property,
+                                      SIGNAL(needRetransform()), this);
+
+            auto_compute_intensity_bounds_property_ =
+                    new BoolProperty("Autocompute Intensity Bounds", true,
+                                     "Whether to automatically compute the intensity min/max values.",
+                                     parent_property, &RangePCTransformer::updateAutoComputeIntensityBounds,
+                                     this);
+
+            min_intensity_property_ = new FloatProperty(
+                    "Min Intensity", 0,
+                    "Minimum possible intensity value, used to interpolate from Min Color to Max Color for a point.",
+                    parent_property);
+
+            max_intensity_property_ = new FloatProperty(
+                    "Max Intensity", 4096,
+                    "Maximum possible intensity value, used to interpolate from Min Color to Max Color for a point.",
+                    parent_property);
+
+
+            filter_property_ = new BoolProperty(
+                    "Filter range", false, "Show only points in or out of given range", parent_property, SIGNAL(needRetransform()), this);
+            filter_property_->setDisableChildrenIfFalse(true);
+            filter_channel_name_property_ = new EditableEnumProperty("Channel Name",
+                                                                        "sem_label",
+                                                                        "Select the channel by which to hide",
+                                                                     filter_property_,
+                                                                        SIGNAL(needRetransform()),
+                                                                        this);
+            filter_lower_value_property_ =
+                    new FloatProperty("Lower Limit", 0, "Select the value", filter_property_, SIGNAL(needRetransform()), this);
+            filter_upper_value_property_ =
+                    new FloatProperty("Upper Limit", 0, "Select the value", filter_property_, SIGNAL(needRetransform()), this);
+
+            invert_filter_property_ = new BoolProperty(
+                    "Invert Filter", false, "Show only points outside of given range", filter_property_, SIGNAL(needRetransform()), this);
+
+            out_props.push_back(channel_name_property_);
+            out_props.push_back(use_rainbow_property_);
+            out_props.push_back(invert_rainbow_property_);
+            out_props.push_back(min_color_property_);
+            out_props.push_back(max_color_property_);
+            out_props.push_back(auto_compute_intensity_bounds_property_);
+            out_props.push_back(min_intensity_property_);
+            out_props.push_back(max_intensity_property_);
+            out_props.push_back(filter_property_);
+
+
+            updateUseRainbow();
+            updateAutoComputeIntensityBounds();
+
+        }
+    }
+
+    void RangePCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& cloud)
+    {
+        std::vector<std::string> channels;
+        for (const auto& field : cloud->fields)
+        {
+            channels.push_back(field.name);
+        }
+        std::sort(channels.begin(), channels.end());
+
+        if (channels != available_channels_)
+        {
+            channel_name_property_->clearOptions();
+            filter_channel_name_property_->clearOptions();
+            for (auto& channel : channels)
+            {
+                if (channel.empty())
+                {
+                    continue;
+                }
+                channel_name_property_->addOptionStd(channel);
+                filter_channel_name_property_->addOptionStd(channel);
+            }
+            available_channels_ = channels;
+        }
+    }
+
+    void RangePCTransformer::updateAutoComputeIntensityBounds()
+    {
+        bool auto_compute = auto_compute_intensity_bounds_property_->getBool();
+        min_intensity_property_->setReadOnly(auto_compute);
+        max_intensity_property_->setReadOnly(auto_compute);
+        if (auto_compute)
+        {
+            disconnect(min_intensity_property_, &Property::changed, this,
+                       &RangePCTransformer::needRetransform);
+            disconnect(max_intensity_property_, &Property::changed, this,
+                       &RangePCTransformer::needRetransform);
+        }
+        else
+        {
+            connect(min_intensity_property_, &Property::changed, this,
+                    &RangePCTransformer::needRetransform);
+            connect(max_intensity_property_, &Property::changed, this,
+                    &RangePCTransformer::needRetransform);
+        }
+        Q_EMIT needRetransform();
+    }
+
+    void RangePCTransformer::updateUseRainbow()
+    {
+        bool use_rainbow = use_rainbow_property_->getBool();
+        invert_rainbow_property_->setHidden(!use_rainbow);
+        min_color_property_->setHidden(use_rainbow);
+        max_color_property_->setHidden(use_rainbow);
+        Q_EMIT needRetransform();
+    }
 
 } // namespace rviz
 
 #include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(rviz::LabelPCTransformer, rviz::PointCloudTransformer)
 PLUGINLIB_EXPORT_CLASS(rviz::IntensityLabelPCTransformer, rviz::PointCloudTransformer)
+PLUGINLIB_EXPORT_CLASS(rviz::RangePCTransformer, rviz::PointCloudTransformer)
