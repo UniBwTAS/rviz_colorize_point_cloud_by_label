@@ -503,6 +503,16 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
             }
         }
 
+        //index changed?
+        if(index!=selected_chanel)
+        {
+            // reset min max continuous intensities
+            continuous_min_intensity = 999999.0f;
+            continuous_max_intensity = -999999.0f;
+            selected_chanel = index;
+        }
+
+
         bool filter_activated = filter_property_->getBool();
         bool invert_filter_activated = invert_filter_property_->getBool();
         float lower_desired_value = filter_lower_value_property_->getFloat();
@@ -522,8 +532,9 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
         const uint32_t point_step = cloud->point_step;
         const uint32_t num_points = cloud->width * cloud->height;
 
-        float min_intensity = 999999.0f;
-        float max_intensity = -999999.0f;
+        const bool use_continuous_int = use_permanent_intensity_property_->getBool();
+        float transient_min_intensity = 999999.0f;
+        float transient_max_intensity = -999999.0f;
         if (auto_compute_intensity_bounds_property_->getBool())
         {
             for (uint32_t i = 0; i < num_points; ++i)
@@ -531,8 +542,16 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
                 float val = valueFromCloud<float>(cloud, offset, type, point_step, i);
                 if (!filter_activated)
                 {
-                    min_intensity = std::min(val, min_intensity);
-                    max_intensity = std::max(val, max_intensity);
+                    if(use_continuous_int)
+                    {
+                        continuous_min_intensity = std::min(val, continuous_min_intensity);
+                        continuous_max_intensity = std::max(val, continuous_max_intensity);
+                    }
+                    else
+                    {
+                        transient_min_intensity = std::min(val, transient_min_intensity);
+                        transient_max_intensity = std::max(val, transient_max_intensity);
+                    }
                 }
                 else
                 {
@@ -541,21 +560,57 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
                     auto filter_val = valueFromCloud<float>(cloud, filter_offset, filter_type, point_step, i);
                     if(test_value(filter_val,lower_desired_value,upper_desired_value,invert_filter_activated))
                     {
-                        min_intensity = std::min(val, min_intensity);
-                        max_intensity = std::max(val, max_intensity);
+                        if(use_continuous_int)
+                        {
+                            continuous_min_intensity = std::min(val, continuous_min_intensity);
+                            continuous_max_intensity = std::max(val, continuous_max_intensity);
+                        }
+                        else
+                        {
+                            transient_min_intensity = std::min(val, transient_min_intensity);
+                            transient_max_intensity = std::max(val, transient_max_intensity);
+                        }
                     }
                 }
             }
 
-            min_intensity = std::max(-999999.0f, min_intensity);
-            max_intensity = std::min(999999.0f, max_intensity);
-            min_intensity_property_->setFloat(min_intensity);
-            max_intensity_property_->setFloat(max_intensity);
+            if(use_continuous_int)
+            {
+                continuous_min_intensity = std::max(-999999.0f, continuous_min_intensity);
+                continuous_max_intensity = std::min(999999.0f, continuous_max_intensity);
+                min_intensity_property_->setFloat(continuous_min_intensity);
+                max_intensity_property_->setFloat(continuous_max_intensity);
+            }
+            else
+            {
+                transient_min_intensity = std::max(-999999.0f, transient_min_intensity);
+                transient_max_intensity = std::min(999999.0f, transient_max_intensity);
+                min_intensity_property_->setFloat(transient_min_intensity);
+                max_intensity_property_->setFloat(transient_max_intensity);
+            }
         }
         else
         {
-            min_intensity = min_intensity_property_->getFloat();
-            max_intensity = max_intensity_property_->getFloat();
+            transient_min_intensity = min_intensity_property_->getFloat();
+            transient_max_intensity = max_intensity_property_->getFloat();
+            continuous_min_intensity = transient_min_intensity;
+            continuous_max_intensity = transient_max_intensity;
+        }
+
+        float min_intensity ;
+        float max_intensity ;
+
+        if(!use_continuous_int)
+        {
+            min_intensity = transient_min_intensity;
+            max_intensity = transient_max_intensity;
+
+        }
+        else
+        {
+            min_intensity = continuous_min_intensity;
+            max_intensity = continuous_max_intensity;
+
         }
 
         float diff_intensity = max_intensity - min_intensity;
@@ -704,12 +759,18 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
             invert_filter_property_ = new BoolProperty(
                     "Invert Filter", false, "Show only points outside of given range", filter_property_, SIGNAL(needRetransform()), this);
 
+            use_permanent_intensity_property_ =
+                    new BoolProperty("Persistent Intensity values", true,
+                                     "Whether to keep min/max intensity values across point clouds.",
+                                     parent_property);
+
             out_props.push_back(channel_name_property_);
             out_props.push_back(use_rainbow_property_);
             out_props.push_back(invert_rainbow_property_);
             out_props.push_back(min_color_property_);
             out_props.push_back(max_color_property_);
             out_props.push_back(auto_compute_intensity_bounds_property_);
+            out_props.push_back(use_permanent_intensity_property_);
             out_props.push_back(min_intensity_property_);
             out_props.push_back(max_intensity_property_);
             out_props.push_back(filter_property_);

@@ -91,10 +91,16 @@ class IntensityLabelPCTransformer : public PointCloudTransformer
         {
             return invert?(val>=up||val<=low):(low<=val&&val<=up);
         };
+
+        int32_t selected_chanel{-1};
+        float continuous_min_intensity{999999.0f};
+        float continuous_max_intensity{-999999.0f};
+
         std::vector<std::string> available_channels_;
         EditableEnumProperty* channel_name_property_;
         BoolProperty* filter_property_;
         BoolProperty* invert_filter_property_;
+        BoolProperty* use_permanent_intensity_property_;
         FloatProperty* filter_lower_value_property_;
         FloatProperty* filter_upper_value_property_;
         EditableEnumProperty* filter_channel_name_property_;
