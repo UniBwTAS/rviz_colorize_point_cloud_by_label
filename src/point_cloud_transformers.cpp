@@ -533,6 +533,13 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
         const uint32_t num_points = cloud->width * cloud->height;
 
         const bool use_continuous_int = use_permanent_intensity_property_->getBool();
+        if (continuous_int_switched != use_continuous_int)
+        {
+            continuous_min_intensity = 999999.0f;
+            continuous_max_intensity = -999999.0f;
+            continuous_int_switched = use_continuous_int;
+        }
+
         float transient_min_intensity = 999999.0f;
         float transient_max_intensity = -999999.0f;
         if (auto_compute_intensity_bounds_property_->getBool())

@@ -93,6 +93,7 @@ class IntensityLabelPCTransformer : public PointCloudTransformer
         };
 
         int32_t selected_chanel{-1};
+        bool continuous_int_switched{true};
         float continuous_min_intensity{999999.0f};
         float continuous_max_intensity{-999999.0f};
 
