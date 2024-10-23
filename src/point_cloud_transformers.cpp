@@ -342,10 +342,10 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
             use_rainbow_property_ =
                     new BoolProperty("Use rainbow", true,
                                      "Whether to use a rainbow of colors or interpolate between two",
-                                     parent_property, &IntensityLabelPCTransformer::updateUseRainbow, this);
+                                     parent_property, SLOT(updateUseRainbow()), this);
             invert_rainbow_property_ =
                     new BoolProperty("Invert Rainbow", false, "Whether to invert rainbow colors", parent_property,
-                                     &IntensityLabelPCTransformer::updateUseRainbow, this);
+                                     SLOT(updateUseRainbow()), this);
 
             min_color_property_ =
                     new ColorProperty("Min Color", Qt::black,
@@ -364,7 +364,7 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
             auto_compute_intensity_bounds_property_ =
                     new BoolProperty("Autocompute Intensity Bounds", true,
                                      "Whether to automatically compute the intensity min/max values.",
-                                     parent_property, &IntensityLabelPCTransformer::updateAutoComputeIntensityBounds,
+                                     parent_property, SLOT(updateAutoComputeIntensityBounds),
                                      this);
 
             min_intensity_property_ = new FloatProperty(
@@ -713,10 +713,10 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
             use_rainbow_property_ =
                     new BoolProperty("Use rainbow", true,
                                      "Whether to use a rainbow of colors or interpolate between two",
-                                     parent_property, &RangePCTransformer::updateUseRainbow, this);
+                                     parent_property, SLOT(updateUseRainbow()), this);
             invert_rainbow_property_ =
                     new BoolProperty("Invert Rainbow", false, "Whether to invert rainbow colors", parent_property,
-                                     &RangePCTransformer::updateUseRainbow, this);
+                                     SLOT(updateUseRainbow()), this);
 
             min_color_property_ =
                     new ColorProperty("Min Color", Qt::black,
@@ -735,7 +735,7 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
             auto_compute_intensity_bounds_property_ =
                     new BoolProperty("Autocompute Intensity Bounds", true,
                                      "Whether to automatically compute the intensity min/max values.",
-                                     parent_property, &RangePCTransformer::updateAutoComputeIntensityBounds,
+                                     parent_property, SLOT(updateAutoComputeIntensityBounds()),
                                      this);
 
             min_intensity_property_ = new FloatProperty(
