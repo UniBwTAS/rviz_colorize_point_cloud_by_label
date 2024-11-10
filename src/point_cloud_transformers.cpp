@@ -364,7 +364,7 @@ void LabelPCTransformer::updateChannels(const sensor_msgs::PointCloud2ConstPtr& 
             auto_compute_intensity_bounds_property_ =
                     new BoolProperty("Autocompute Intensity Bounds", true,
                                      "Whether to automatically compute the intensity min/max values.",
-                                     parent_property, SLOT(updateAutoComputeIntensityBounds),
+                                     parent_property, SLOT(updateAutoComputeIntensityBounds()),
                                      this);
 
             min_intensity_property_ = new FloatProperty(
